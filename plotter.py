@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 import sys
 import csv
 import pyqtgraph as pg
@@ -9,7 +10,8 @@ from pyqtgraph.Qt import QtGui
 title = "Plot"
 x_name = "x"
 y_name = "y"
-logarithmic = False
+x_units = ""
+y_units = ""
 x = []
 y = []
 
@@ -21,7 +23,7 @@ except KeyboardInterrupt as e:
     raise e
 except Exception as e:
     print ("")
-    print ("Usage: %s <csv input file> [--log]" % sys.argv[0])
+    print ("Usage: %s <csv input file>" % sys.argv[0])
     print ("")
     print ("Example CSV file:")
     print ("")
@@ -33,13 +35,11 @@ except Exception as e:
     print ("")
     sys.exit(1)
 
-if '--log' in sys.argv[1:]:
-    logarithmic = True
-
 # Parse specified CSV file
 try:
     row_id = 0
     reader = csv.reader(f)
+    units = re.compile(r'\((.+?)\)', flags=re.DOTALL)
 
     for row in reader:
         row_id += 1
@@ -48,10 +48,22 @@ try:
             title = row[0]
             x_name = row[1]
             y_name = row[2]
+
+            try:
+                x_units = units.search(x_name).groups()[0]
+                x_name = x_name.replace("(%s)" % x_units, "")
+            except Exception:
+                pass
+
+            try:
+                y_units = units.search(y_name).groups()[0]
+                y_name = y_name.replace("(%s)" % y_units, "")
+            except Exception:
+                pass
         elif len(row) == 2:
             try:
-                x.append(int(row[0]))
-                y.append(int(row[1]))
+                x.append(float(row[0]))
+                y.append(float(row[1]))
             except ValueError as e:
                 raise Exception("Invalid integer value in row %d: %s" % (row_id, str(row)))
         elif len(row) > 0:
@@ -66,11 +78,12 @@ except Exception as e:
 f.close()
 
 # Generate plot
+pg.setConfigOption('background', 'w')
+pg.setConfigOption('foreground', 'k')
 plt = pg.plot(title=title, clear=True)
-plt.plot(x, y, pen='y')
-plt.setLabel('left', y_name)
-plt.setLabel('bottom', x_name)
-plt.setLogMode(logarithmic)
+plt.plot(x, y, pen=pg.mkPen('b', width=3))
+plt.setLabel('left', y_name, units=y_units)
+plt.setLabel('bottom', x_name, units=x_units)
 
 # Display plot
 QtGui.QApplication.instance().exec_()
